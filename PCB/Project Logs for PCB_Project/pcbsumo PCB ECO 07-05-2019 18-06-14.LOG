@@ -1,0 +1,6 @@
+Added Component: Designator=P1(TO-220A)
+Add component. Clean all parameters for all variants
+Added Pin To Net: NetName=Net*_8 Pin=P1-1
+Added Pin To Net: NetName=GND Pin=P1-2
+Added Pin To Net: NetName=5V Pin=P1-3
+Added Member To Class: ClassName=Esquesumo Member=Component P1 LM7805

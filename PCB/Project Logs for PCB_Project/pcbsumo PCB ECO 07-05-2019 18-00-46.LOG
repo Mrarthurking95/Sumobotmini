@@ -1,0 +1,13 @@
+Added Component: Designator=pul1(PULSADOR)
+Add component. Clean all parameters for all variants
+Added Component: Designator=U1(ASM1117)
+Add component. Clean all parameters for all variants
+Added Pin To Net: NetName=Netpul1_1 Pin=pul1-1
+Added Pin To Net: NetName=Net_8 Pin=pul1-2
+Added Pin To Net: NetName=NetR1_1 Pin=U1-1
+Added Pin To Net: NetName=GND Pin=U1-2
+Added Pin To Net: NetName=GND Pin=U1-3
+Added Pin To Net: NetName=Net*_8 Pin=U1-4
+Added Member To Class: ClassName=Esquesumo Member=Component pul1 Pulsador2
+Added Member To Class: ClassName=Esquesumo Member=Component U1 Mod regu 3.3
+Added Room: Name=Esquesumo

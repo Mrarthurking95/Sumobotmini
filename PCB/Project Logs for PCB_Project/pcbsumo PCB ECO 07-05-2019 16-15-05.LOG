@@ -1,0 +1,47 @@
+Added Component: Designator=QRD1114_1(HEADER 1X4)
+Add component. Clean all parameters for all variants
+Added Component: Designator=QRD1114_2(HEADER 1X4)
+Add component. Clean all parameters for all variants
+Added Component: Designator=QRD1114_3(HEADER 1X4)
+Add component. Clean all parameters for all variants
+Added Component: Designator=QRD1114_4(HEADER 1X4)
+Add component. Clean all parameters for all variants
+Added Component: Designator=SHARP1(HEADER 1X3)
+Add component. Clean all parameters for all variants
+Added Component: Designator=SHARP2(HEADER 1X3)
+Add component. Clean all parameters for all variants
+Added Component: Designator=SHARP3(HEADER 1X3)
+Add component. Clean all parameters for all variants
+Added Pin To Net: NetName=Net_15 Pin=QRD1114_1-1
+Added Pin To Net: NetName=NetQRD1114_1_2 Pin=QRD1114_1-2
+Added Pin To Net: NetName=GND Pin=QRD1114_1-3
+Added Pin To Net: NetName=GND Pin=QRD1114_1-4
+Added Pin To Net: NetName=Net_14 Pin=QRD1114_2-1
+Added Pin To Net: NetName=NetQRD1114_2_2 Pin=QRD1114_2-2
+Added Pin To Net: NetName=GND Pin=QRD1114_2-3
+Added Pin To Net: NetName=GND Pin=QRD1114_2-4
+Added Pin To Net: NetName=Net_13 Pin=QRD1114_3-1
+Added Pin To Net: NetName=NetQRD1114_3_2 Pin=QRD1114_3-2
+Added Pin To Net: NetName=GND Pin=QRD1114_3-3
+Added Pin To Net: NetName=GND Pin=QRD1114_3-4
+Added Pin To Net: NetName=Net_12 Pin=QRD1114_4-1
+Added Pin To Net: NetName=NetQRD1114_4_2 Pin=QRD1114_4-2
+Added Pin To Net: NetName=GND Pin=QRD1114_4-3
+Added Pin To Net: NetName=GND Pin=QRD1114_4-4
+Added Pin To Net: NetName=Net_25 Pin=SHARP1-1
+Added Pin To Net: NetName=5V Pin=SHARP1-2
+Added Pin To Net: NetName=GND Pin=SHARP1-3
+Added Pin To Net: NetName=Net_26 Pin=SHARP2-1
+Added Pin To Net: NetName=5V Pin=SHARP2-2
+Added Pin To Net: NetName=GND Pin=SHARP2-3
+Added Pin To Net: NetName=Net_27 Pin=SHARP3-1
+Added Pin To Net: NetName=5V Pin=SHARP3-2
+Added Pin To Net: NetName=GND Pin=SHARP3-3
+Added Member To Class: ClassName=Esquesumo Member=Component QRD1114_1 Connector header 4P
+Added Member To Class: ClassName=Esquesumo Member=Component QRD1114_2 Connector header 4P
+Added Member To Class: ClassName=Esquesumo Member=Component QRD1114_3 Connector header 4P
+Added Member To Class: ClassName=Esquesumo Member=Component QRD1114_4 Connector header 4P
+Added Member To Class: ClassName=Esquesumo Member=Component SHARP1 Connector header 3P
+Added Member To Class: ClassName=Esquesumo Member=Component SHARP2 Connector header 3P
+Added Member To Class: ClassName=Esquesumo Member=Component SHARP3 Connector header 3P
+Added Room: Name=Esquesumo
