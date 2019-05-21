@@ -54,7 +54,19 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 volatile uint16_t contMilis=0;
-void direccion_process();
+volatile uint16_t contAttack=0;//Tiempo de ataque
+volatile uint16_t sharpizq;//Sensor ir sharp de frente
+volatile uint16_t sharpfront;//Sensor ir sharp de frente
+volatile uint16_t sharpder;//Sensor ir sharp de frente
+volatile uint16_t battery;//Adc voltaje bateria
+volatile uint8_t QRD1;
+volatile uint8_t QRD2;
+volatile uint8_t QRD3;
+volatile uint8_t QRD4;
+//volatile uint8_t tadcEN;
+void direccion_process();//proceso direccion
+void modo_process();//proceso modo
+void piso_process();//proceso el piso
 enum{//Estados motores
 	   ADELANTE=0,
 	   ATRAS,
@@ -63,27 +75,49 @@ enum{//Estados motores
 	   QUIETO,
 	   DIRSTAT//Numero de Timers boton presionado
 };
-ST_MOT=QUIETO;
+ST_MOT=ADELANTE;
+enum{//Timers de estado
+	TimATAQUE,
+	TimREVERSA,
+	TIMERS
+};
+ST_TIM=TimATAQUE;
+enum{//Modo robot
+	BUSQUEDA=0,
+	ATAQUE,
+	FREERUN,//Modo de camino random
+	DESCANSO,
+	ESTAT//Numero de estados
+}
+ST_MODO=DESCANSO;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
 /* USER CODE END PM */
-
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
-
+UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
-
+uint16_t alistarse=0;
+uint8_t alistEN=0;
+uint8_t TiemADC=0;
+uint8_t atimEN=0;//Timer que define el tiempo que durara en la secuencia de ataque
+volatile uint32_t adc_buf[4];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -121,10 +155,15 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
+  MX_ADC1_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim2);
+  HAL_ADC_Start_DMA(&hadc1,(uint32_t*)adc_buf,4);
+  HAL_ADC_Start_IT(&hadc1);
   HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_2);
   __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,3599);//100%
@@ -136,33 +175,31 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  direccion_process();//Checkeo en tiempo maquina
-	  //Inicio cambio segundo
-	  if(contMilis>=1000){
-		  contMilis=0;
-		  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_13);
-		  if(ST_MOT==ADELANTE){
-			  ST_MOT=ATRAS;
-		  }
-		  else if(ST_MOT==ATRAS){
-			  ST_MOT=IZQUIERDA;
-		  }
-		  else if(ST_MOT==IZQUIERDA){
-			  ST_MOT=DERECHA;
-		  }
-		  else if(ST_MOT==DERECHA){
-			  ST_MOT=QUIETO;
-		  }
-		  else if(ST_MOT==QUIETO){
-			  ST_MOT=ADELANTE;
-		  }
-		  contMilis=0;
-	  } //Fin cambio al segundo
+
     /* USER CODE BEGIN 3 */
+	  //Inicio cambio segundo
+	  /*
+	  HAL_ADC_Start(&hadc1);
+	  HAL_ADC_PollForConversion(&hadc1,15);//15 ms muestreo
+	  sharpfront=HAL_ADC_GetValue(&hadc1);
+	  HAL_ADC_Stop(&hadc1);
+	  */
+	  //Adc para sensores
+	  if(TiemADC>=10){
+		  HAL_ADC_Start_IT(&hadc1);
+		  sharpizq=adc_buf[0];
+		  sharpfront=adc_buf[1];
+		  sharpder=adc_buf[2];
+		  battery=adc_buf[3];
+		  TiemADC=0;
+	  }else{
+		//  tadcEN=1;
+	  }
+	  modo_process();
+	  direccion_process();
   }
   /* USER CODE END 3 */
 }
-
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -171,6 +208,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /**Initializes the CPU, AHB and APB busses clocks 
   */
@@ -198,6 +236,81 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /**Common config 
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 4;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /**Configure Regular Channel 
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /**Configure Regular Channel 
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /**Configure Regular Channel 
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /**Configure Regular Channel 
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -325,6 +438,54 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/** 
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -336,11 +497,14 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, QRD3_Pin|QRD4_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, IN3_Pin|IN4_Pin|IN1_Pin|IN2_Pin, GPIO_PIN_RESET);
@@ -352,6 +516,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : QRD3_Pin QRD4_Pin */
+  GPIO_InitStruct.Pin = QRD3_Pin|QRD4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pins : IN3_Pin IN4_Pin IN1_Pin IN2_Pin */
   GPIO_InitStruct.Pin = IN3_Pin|IN4_Pin|IN1_Pin|IN2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -359,35 +530,106 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PULSADOR_Pin */
+  GPIO_InitStruct.Pin = PULSADOR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(PULSADOR_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : QRD1_Pin QRD2_Pin */
+  GPIO_InitStruct.Pin = QRD1_Pin|QRD2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
+void modo_process(){
+	switch(ST_MODO){
+	case BUSQUEDA:
+		if(sharpizq<sharpfront && sharpfront>sharpder){ //Objeto en el frente mayor
+		//	ST_MODO=ATAQUE;
+			  ST_MOT=ADELANTE;
+		}else if(sharpizq>sharpfront && sharpizq>sharpder){//Si hay un objeto en izquierda
+		    ST_MOT=IZQUIERDA;
+		}else if(sharpder>sharpfront && sharpder>sharpizq){
+			ST_MOT=DERECHA;
+		}
+		alistarse=0;
+//		ST_MOT=IZQUIERDA;
+	break;
+	case ATAQUE:
+		atimEN=1;//attack timer enable
+		ST_MOT=ADELANTE;//Modo ataque
+		if(contAttack>=2500){
+			atimEN=0;
+			contAttack=0;
+			ST_MOT=BUSQUEDA;
+		}
 
+	break;
+	case FREERUN:
+		  if(contMilis>=1000){//Programacion freerun
+			  contMilis=0;
+			  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_13);
+			  if(ST_MOT==ADELANTE){
+				  ST_MOT=ATRAS;
+			  }
+			  else if(ST_MOT==ATRAS){
+				  ST_MOT=IZQUIERDA;
+			  }
+			  else if(ST_MOT==IZQUIERDA){
+				  ST_MOT=DERECHA;
+			  }
+			  else if(ST_MOT==DERECHA){
+				  ST_MOT=QUIETO;
+			  }
+			  else if(ST_MOT==QUIETO){
+				  ST_MOT=ADELANTE;
+			  }
+			  contMilis=0;
+		  } //Fin programacion freerun
+	break;
+	case DESCANSO://5 segundos antes de la competicion
+		ST_MOT=QUIETO;
+		if(alistarse>=5000){
+			ST_MODO=BUSQUEDA;
+		}
+	break;
+	}
+}//Fin modos del carro
+void piso_process(){
+	QRD1=HAL_GPIO_ReadPin(GPIOB,QRD1_Pin);//QRD1
+	QRD2=HAL_GPIO_ReadPin(GPIOB,QRD2_Pin);//QRD2
+	QRD3=HAL_GPIO_ReadPin(GPIOB,QRD3_Pin);//QRD3
+	QRD4=HAL_GPIO_ReadPin(GPIOB,QRD4_Pin);//QRD4
+}//Fin proceso piso
 void direccion_process(){
 switch(ST_MOT){
 	case ADELANTE:
-		  HAL_GPIO_WritePin(GPIOB,IN1_Pin, GPIO_PIN_SET);//	B12
-		  HAL_GPIO_WritePin(GPIOB, IN2_Pin, GPIO_PIN_RESET);//B13
+		  HAL_GPIO_WritePin(GPIOB,IN1_Pin, GPIO_PIN_RESET);//	B12
+		  HAL_GPIO_WritePin(GPIOB, IN2_Pin, GPIO_PIN_SET);//B13
 		  HAL_GPIO_WritePin(GPIOB,IN3_Pin, GPIO_PIN_SET);//	B12
 		  HAL_GPIO_WritePin(GPIOB, IN4_Pin, GPIO_PIN_RESET);//B13
 	break;
 	case ATRAS:
-		  HAL_GPIO_WritePin(GPIOB,IN1_Pin, GPIO_PIN_RESET);//	B12
-		  HAL_GPIO_WritePin(GPIOB, IN2_Pin, GPIO_PIN_SET);//B13
+		  HAL_GPIO_WritePin(GPIOB,IN1_Pin, GPIO_PIN_SET);//	B12
+		  HAL_GPIO_WritePin(GPIOB, IN2_Pin, GPIO_PIN_RESET);//B13
 		  HAL_GPIO_WritePin(GPIOB,IN3_Pin, GPIO_PIN_RESET);//	B12
 		  HAL_GPIO_WritePin(GPIOB, IN4_Pin, GPIO_PIN_SET);//B13
 	break;
 	case IZQUIERDA:
 		  HAL_GPIO_WritePin(GPIOB,IN1_Pin, GPIO_PIN_SET);//	B12
 		  HAL_GPIO_WritePin(GPIOB, IN2_Pin, GPIO_PIN_RESET);//B13
-		  HAL_GPIO_WritePin(GPIOB,IN3_Pin, GPIO_PIN_RESET);//	B12
-		  HAL_GPIO_WritePin(GPIOB, IN4_Pin, GPIO_PIN_SET);//B13
+		  HAL_GPIO_WritePin(GPIOB,IN3_Pin, GPIO_PIN_SET);//	B10
+		  HAL_GPIO_WritePin(GPIOB, IN4_Pin, GPIO_PIN_RESET);//B11
 	break;
 	case DERECHA:
 		  HAL_GPIO_WritePin(GPIOB,IN1_Pin, GPIO_PIN_RESET);//	B12
 		  HAL_GPIO_WritePin(GPIOB, IN2_Pin, GPIO_PIN_SET);//B13
-		  HAL_GPIO_WritePin(GPIOB,IN3_Pin, GPIO_PIN_SET);//	B12
-		  HAL_GPIO_WritePin(GPIOB, IN4_Pin, GPIO_PIN_RESET);//B13
+		  HAL_GPIO_WritePin(GPIOB,IN3_Pin, GPIO_PIN_RESET);//	B10
+		  HAL_GPIO_WritePin(GPIOB, IN4_Pin, GPIO_PIN_SET);//B11
 	break;
 	case QUIETO:
 		  HAL_GPIO_WritePin(GPIOB,IN1_Pin, GPIO_PIN_RESET);//	B12
@@ -397,12 +639,41 @@ switch(ST_MOT){
 	break;
 }
 }
-
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){//Interrupcion adc
+	uint32_t val[4];
+	if(hadc->Instance==ADC1){
+		val[0]=adc_buf[0];
+		val[1]=adc_buf[1];
+		val[2]=adc_buf[2];
+		val[3]=adc_buf[3];
+	}
+}
 //Contador milis
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance == TIM2){
+		if(atimEN==1){
+			contAttack++;
+		}
+		//if(tadcEN==1){
+
+			if(TiemADC>=10){
+				//TiemADC=0;
+			}else{
+			TiemADC++;
+			}
+		//}
 		if(contMilis<=1000){
 		contMilis++;
+		if(ST_MODO==DESCANSO){
+			if(alistarse<=5000){
+				alistarse++;
+			}else{
+				ST_MODO=BUSQUEDA;
+			}
+
+		}
+		}else{
+			contMilis=0;
 		}
 		//if (contMilis>=1000){
 			//contMilis=0;

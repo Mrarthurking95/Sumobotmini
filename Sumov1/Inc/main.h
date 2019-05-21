@@ -80,6 +80,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define QRD3_Pin GPIO_PIN_6
+#define QRD3_GPIO_Port GPIOA
+#define QRD4_Pin GPIO_PIN_7
+#define QRD4_GPIO_Port GPIOA
 #define IN3_Pin GPIO_PIN_10
 #define IN3_GPIO_Port GPIOB
 #define IN4_Pin GPIO_PIN_11
@@ -88,6 +92,12 @@ void Error_Handler(void);
 #define IN1_GPIO_Port GPIOB
 #define IN2_Pin GPIO_PIN_13
 #define IN2_GPIO_Port GPIOB
+#define PULSADOR_Pin GPIO_PIN_11
+#define PULSADOR_GPIO_Port GPIOA
+#define QRD1_Pin GPIO_PIN_4
+#define QRD1_GPIO_Port GPIOB
+#define QRD2_Pin GPIO_PIN_5
+#define QRD2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
